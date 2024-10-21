@@ -1,0 +1,5 @@
+install/
+log/
+*~
+*.orig
+*.bak
