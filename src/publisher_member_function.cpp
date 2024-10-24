@@ -28,11 +28,16 @@ using namespace std::chrono_literals;
 class TrajectoryFromFileNode : public rclcpp::Node {
   public:
     TrajectoryFromFileNode()
-        : Node("minimal_publisher"), count_(0) {
+        : Node("trajectory_from_file_pub"), count_(0) {
         {
             auto param_desc = rcl_interfaces::msg::ParameterDescriptor{};
             param_desc.description = "Path to the input CSV file";
             this->declare_parameter("input_file", "", param_desc);
+        }
+        {
+            auto param_desc = rcl_interfaces::msg::ParameterDescriptor{};
+            param_desc.description = "The name of the topic the data will be published on. Default \"/trajectory_from_file/joint_command\".";
+            this->declare_parameter("output_topic_name", "/trajectory_from_file/joint_command", param_desc);
         }
         {
             auto param_desc = rcl_interfaces::msg::ParameterDescriptor{};
@@ -61,10 +66,7 @@ class TrajectoryFromFileNode : public rclcpp::Node {
     
     void configure() {
         auto input_file = this->get_parameter("input_file").as_string();  
-        
-        //std::string file = "/home/vbargsten/ros2_ws/src/orogen-trajectory_from_file/test/trajectory-pos_100.csv";
-        //std::string file = "/home/vbargsten/ros2_ws/src/orogen-trajectory_from_file/test/data/logJointSpace_filled_interp.csv";
-        std::string port_name="bla";
+        auto port_name = this->get_parameter("output_topic_name").as_string();
         std::shared_ptr<rclcpp::Node> nodep = shared_from_this();
         std::vector<std::string> joint_names;
         csv = std::make_unique<trajectory_from_file::JointPositionsFromCSVPublisher>(input_file,port_name,nodep,joint_names);
@@ -104,7 +106,10 @@ class TrajectoryFromFileNode : public rclcpp::Node {
         std::this_thread::sleep_for(std::chrono::microseconds{output_period_us});
         auto t_next = now();
         while (!csv->isFinished()) {
-            update();            
+            update();
+            
+            //rclcpp::spin_node_once(shared_from_this(), std::chrono::microseconds{output_period_us/2});
+            
             t_next += std::chrono::microseconds{output_period_us};
             while( ((int)((now() - t_next).seconds()*1e6)) < 25/2 ) {
                 std::this_thread::sleep_for(std::chrono::microseconds{25});
