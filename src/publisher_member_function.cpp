@@ -18,12 +18,15 @@
 #include <string>
 #include <iostream>
 // #include <cerror.h>
+#include <csignal>
 
 #include "rclcpp/rclcpp.hpp"
 #include "std_msgs/msg/string.hpp"
 #include "CSVPublisher.hpp"
 
 using namespace std::chrono_literals;
+
+std::atomic_bool stopped;
 
 class TrajectoryFromFileNode : public rclcpp::Node {
   public:
@@ -55,6 +58,9 @@ class TrajectoryFromFileNode : public rclcpp::Node {
             this->declare_parameter("time_source", "", param_desc);
         }*/
         
+        signal(SIGTERM, [](int signum) {
+            stopped.store(true);
+        });
 
         t = now();
         delta_t.reserve(1000000);
@@ -105,14 +111,14 @@ class TrajectoryFromFileNode : public rclcpp::Node {
         t = now();
         std::this_thread::sleep_for(std::chrono::microseconds{output_period_us});
         auto t_next = now();
-        while (!csv->isFinished()) {
+        while (!csv->isFinished() && !stopped.load()) {
             update();
             
             //rclcpp::spin_node_once(shared_from_this(), std::chrono::microseconds{output_period_us/2});
             
             t_next += std::chrono::microseconds{output_period_us};
-            while( ((int)((now() - t_next).seconds()*1e6)) < 25/2 ) {
-                std::this_thread::sleep_for(std::chrono::microseconds{25});
+            while( ((int)((now() - t_next).seconds()*1e6)) < 10/2 ) {
+                std::this_thread::sleep_for(std::chrono::microseconds{10});
             }
         }        
     }
